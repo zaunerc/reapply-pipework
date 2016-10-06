@@ -1,0 +1,114 @@
+#!/bin/bash
+
+# Author: Christoph Zauner
+# Source code repo: https://github.com/zaunerc/reapply-pipework-script 
+# Docs: https://github.com/zaunerc/reapply-pipework/README.md
+
+set -e
+
+# Params: 1. Message to print to stdout.
+#
+function error_exit
+{
+	echo "$1" 1>&2
+	exit 1
+}
+
+# Params: 1. Image name
+#
+function is_image_running {
+
+	local IMAGE_NAME="$1"
+	local RUNNING_IMAGE_COUNT=$(docker ps | grep "$IMAGE_NAME" | wc -l)
+
+	if [[ "$RUNNING_IMAGE_COUNT" -eq 1 ]]; then
+		echo "true"
+	elif [[ "$RUNNING_IMAGE_COUNT" -gt 1 ]]; then
+		error_exit "Multiple images with name "$IMAGE_NAME" running. Aborting."
+	else
+		echo "false"
+	fi
+}
+
+# Params: 1. MAC
+#
+function is_mac_present_in_def_ns {
+	local MAC="$1"
+	local PRESENT_MAC_COUNT=$(ip -o link | grep "$MAC" | wc -l)
+	
+	if [[ $PRESENT_MAC_COUNT -eq 1 ]]; then
+		echo "true"
+	elif [[ $PRESENT_MAC_COUNT -gt 1 ]]; then
+		error_exit "Multiple interface with MAC "$MAC" present. Aborting."
+	else
+		echo "false"
+	fi
+}
+
+# Params: 1. Image name
+#
+function echo_cid_for_image_name {
+
+	local IMAGE_NAME=$1
+
+	local CID=$(docker ps | grep "$IMAGE_NAME" | cut -d' ' -f1)
+	echo $CID
+}
+
+# Params: 1. MAC address
+#
+function echo_interface_for_mac_address {
+
+	local MAC=$1
+
+	INTERFACE=$(ip -o link | grep "$MAC" | cut -d' ' -f2 | head --bytes -2)
+	echo $INTERFACE
+}
+
+# Params: 1. Image name
+#         2. MAC for container
+#         3. IP to assign
+#         4. Subnet mask (e.g. 24)
+#         5. Gateway IP
+#
+function run_pipeworks_if_required {
+
+	local IMAGE_NAME="$1"
+	local MAC="$2"
+	
+	local IP="$3"
+	local SUBNET="$4"
+	local GATEWAY_IP="$5"
+
+	if [ $(is_image_running "$IMAGE_NAME") == "true" ] && [ $(is_mac_present_in_def_ns "$MAC") == "true" ]; then
+		
+		local CID=$(echo_cid_for_image_name "$IMAGE_NAME")
+		local INTERFACE=$(echo_interface_for_mac_address "$MAC")		
+
+		echo "===> RUNNING PIPEWORK FOR FOLLOWING IMAGE NAME & MAC TUPLE:"
+		run_pipeworks "$CID" "$IP" "$INTERFACE" "$SUBNET" "$GATEWAY_IP"
+	else
+		echo "===> not running pipework for following image name & MAC tuple:"
+	fi
+	echo -e "\timage name: '$IMAGE_NAME' mac: '$MAC' (ip: '$IP' subnet: '$SUBNET' gateway: '$GATEWAY_IP')"
+}
+
+# Params: 1. Container ID
+#         2. IP to assign
+#         3. Network interface to use
+#         4. Subnet mask (e.g. 24)
+#         5. Gateway IP
+#
+function run_pipeworks {
+	
+	local CID="$1"
+	local IP="$2"
+	local INTERFACE="$3"
+	local SUBNET="$4"
+	local GATEWAY_IP="$5"
+
+	/usr/local/sbin/pipework --direct-phys "$INTERFACE" "$CID" "$IP"/"$SUBNET"@"$GATEWAY_IP"
+}
+
+source /usr/local/etc/reapply-pipework.conf
+

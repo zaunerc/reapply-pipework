@@ -1,0 +1,12 @@
+[Unit]
+Description=Run reapply-pipework.service every 15 seconds.
+After=docker.service
+Requires=docker.service
+
+[Timer]
+AccuracySec=3s
+OnActiveSec=15s
+OnUnitActiveSec=10s 
+
+[Install]
+WantedBy=timers.target
