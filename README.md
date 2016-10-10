@@ -11,3 +11,9 @@ anymore inside the container (it will be part of the default network namespace a
 
 The `reapply-pipework` script is supposed to run periodically on a docker host.
 It reapplies network settings to docker containers using [pipework](https://github.com/jpetazzo/pipework).
+
+## Installation
+
+1. Install the [pipework](https://github.com/jpetazzo/pipework) script to `/usr/local/sbin/`.
+1. Install the [reapply-pipework](https://github.com/zaunerc/reapply-pipework) script using the provided [install](https://github.com/zaunerc/reapply-pipework/blob/master/install) script.
+1. Configure the [reapply-pipework](https://github.com/zaunerc/reapply-pipework) script using the  `/usr/local/etc/reapply-pipework.conf` file.
