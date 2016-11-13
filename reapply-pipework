@@ -14,19 +14,17 @@ function error_exit
 	exit 1
 }
 
-# Params: 1. Image name
+# Params: 1. Container name
 #
-function is_image_running {
+function is_container_running {
 
-	local IMAGE_NAME="$1"
-	local RUNNING_IMAGE_COUNT=$(docker ps | grep "$IMAGE_NAME" | wc -l)
+	local CONTAINER_NAME="$1"
 
-	if [[ "$RUNNING_IMAGE_COUNT" -eq 1 ]]; then
-		echo "true"
-	elif [[ "$RUNNING_IMAGE_COUNT" -gt 1 ]]; then
-		error_exit "Multiple images with name "$IMAGE_NAME" running. Aborting."
-	else
+	# Container name is always unique.
+	if [[ $(echo_cid_for_container_name "$CONTAINER_NAME") == "" ]]; then
 		echo "false"
+	else
+		echo "true"
 	fi
 }
 
@@ -45,13 +43,13 @@ function is_mac_present_in_def_ns {
 	fi
 }
 
-# Params: 1. Image name
+# Params: 1. Container name
 #
-function echo_cid_for_image_name {
+function echo_cid_for_container_name {
 
-	local IMAGE_NAME=$1
+	local CONTAINER_NAME=$1
 
-	local CID=$(docker ps | grep "$IMAGE_NAME" | cut -d' ' -f1)
+	local CID=$(docker ps --filter name="^/$CONTAINER_NAME$" --format "{{.ID}}")
 	echo $CID
 }
 
@@ -65,7 +63,7 @@ function echo_interface_for_mac_address {
 	echo $INTERFACE
 }
 
-# Params: 1. Image name
+# Params: 1. Container name
 #         2. MAC for container
 #         3. IP to assign
 #         4. Subnet mask (e.g. 24)
@@ -73,24 +71,24 @@ function echo_interface_for_mac_address {
 #
 function run_pipeworks_if_required {
 
-	local IMAGE_NAME="$1"
+	local CONTAINER_NAME="$1"
 	local MAC="$2"
 	
 	local IP="$3"
 	local SUBNET="$4"
 	local GATEWAY_IP="$5"
 
-	if [ $(is_image_running "$IMAGE_NAME") == "true" ] && [ $(is_mac_present_in_def_ns "$MAC") == "true" ]; then
+	if [ $(is_container_running "$CONTAINER_NAME") == "true" ] && [ $(is_mac_present_in_def_ns "$MAC") == "true" ]; then
 		
-		local CID=$(echo_cid_for_image_name "$IMAGE_NAME")
+		local CID=$(echo_cid_for_container_name "$CONTAINER_NAME")
 		local INTERFACE=$(echo_interface_for_mac_address "$MAC")		
 
-		echo "===> RUNNING PIPEWORK FOR FOLLOWING IMAGE NAME & MAC TUPLE:"
+		echo "===> RUNNING PIPEWORK FOR FOLLOWING CONTAINER NAME & MAC TUPLE:"
 		run_pipeworks "$CID" "$IP" "$INTERFACE" "$SUBNET" "$GATEWAY_IP"
 	else
-		echo "===> not running pipework for following image name & MAC tuple:"
+		echo "===> not running pipework for following container name & MAC tuple:"
 	fi
-	echo -e "\timage name: '$IMAGE_NAME' mac: '$MAC' (ip: '$IP' subnet: '$SUBNET' gateway: '$GATEWAY_IP')"
+	echo -e "\tcontainer name: '$CONTAINER_NAME' mac: '$MAC' (ip: '$IP' subnet: '$SUBNET' gateway: '$GATEWAY_IP')"
 }
 
 # Params: 1. Container ID
